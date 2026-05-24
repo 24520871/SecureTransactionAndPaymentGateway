@@ -253,20 +253,6 @@ Exit PostgreSQL:
 
 ---
 
-# Run Development Server
-
-```bash
-npm run dev
-```
-
-Open browser:
-
-```txt
-http://localhost:3000
-```
-
----
-
 # Current Register Flow
 
 ```txt
@@ -350,62 +336,3 @@ Public keys:
 
 ---
 
-# Planned Features
-
-* Firebase Authentication integration
-* Digital signature generation
-* Signature verification
-* Signed transaction flow
-* Transaction history
-* Audit logging
-
----
-
-# Git Workflow
-
-Create feature branch:
-
-```bash
-git checkout -b feature-name
-```
-
-Commit:
-
-```bash
-git add .
-git commit -m "your message"
-```
-
-Push:
-
-```bash
-git push -u origin feature-name
-```
-
----
-
-# Current Main Branches
-
-| Branch             | Purpose                   |
-| ------------------ | ------------------------- |
-| main               | Stable branch             |
-| WebCryptoAPI_setup | Cryptography setup branch |
-
----
-
-# Team Responsibilities
-
-## Cryptography Layer
-
-* Web Crypto API
-* IndexedDB
-* Signature generation
-* Signature verification
-* PostgreSQL
-
-## Authentication Layer
-
-* Firebase Authentication
-* Login/Register
-* Session management
-* JWT/Auth handling |
