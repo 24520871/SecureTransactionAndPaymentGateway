@@ -1,26 +1,68 @@
-//use for saving private key
+// use for saving private key
+
 import { openDB } from "idb";
 
 const DB_NAME = "secure-payment-db";
 
+const STORE_NAME = "keys";
+
 export async function getDB() {
+
   return openDB(DB_NAME, 1, {
+
     upgrade(db) {
-      if (!db.objectStoreNames.contains("keys")) {
-        db.createObjectStore("keys");
+
+      if (
+        !db.objectStoreNames.contains(
+          STORE_NAME
+        )
+      ) {
+
+        db.createObjectStore(
+          STORE_NAME
+        );
       }
     },
   });
 }
 
-export async function savePrivateKey(key: CryptoKey) {
+// Save private key by email
+export async function savePrivateKey(
+  email: string,
+  key: CryptoKey
+) {
+
   const db = await getDB();
 
-  await db.put("keys", key, "privateKey");
+  await db.put(
+    STORE_NAME,
+    key,
+    email
+  );
 }
 
-export async function getPrivateKey() {
+// Get private key by email
+export async function getPrivateKey(
+  email: string
+) {
+
   const db = await getDB();
 
-  return db.get("keys", "privateKey");
+  return db.get(
+    STORE_NAME,
+    email
+  );
+}
+
+// Optional helper
+export async function deletePrivateKey(
+  email: string
+) {
+
+  const db = await getDB();
+
+  return db.delete(
+    STORE_NAME,
+    email
+  );
 }
