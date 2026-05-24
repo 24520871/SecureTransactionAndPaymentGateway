@@ -13,8 +13,11 @@ import {
 
 export default function RegisterPage() {
 
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
+  const [username, setUsername] =
+    useState("");
+
+  const [email, setEmail] =
+    useState("");
 
   const [password, setPassword] =
     useState("");
@@ -40,8 +43,12 @@ export default function RegisterPage() {
       }
 
       // Validate password match
-      if (password !== confirmPassword) {
-        alert("Passwords do not match");
+      if (
+        password !== confirmPassword
+      ) {
+        alert(
+          "Passwords do not match"
+        );
         return;
       }
 
@@ -53,22 +60,25 @@ export default function RegisterPage() {
         return;
       }
 
-      // 1. Generate keypair
+      // Generate keypair
       const keyPair =
         await generateKeyPair();
 
-      // 2. Save private key locally
+      // Save private key locally
+      // IMPORTANT:
+      // save by email
       await savePrivateKey(
+        email,
         keyPair.privateKey
       );
 
-      // 3. Export public key
+      // Export public key
       const publicKey =
         await exportPublicKey(
           keyPair.publicKey
         );
 
-      // 4. Send to backend
+      // Send public key to backend
       const res = await fetch(
         "/api/register",
         {
@@ -82,7 +92,6 @@ export default function RegisterPage() {
           body: JSON.stringify({
             username,
             email,
-            password,
             publicKey,
           }),
         }
@@ -93,10 +102,12 @@ export default function RegisterPage() {
       console.log(data);
 
       if (!res.ok) {
+
         alert(
           data.error ||
           "Register failed"
         );
+
         return;
       }
 
@@ -125,7 +136,9 @@ export default function RegisterPage() {
           placeholder="Username"
           value={username}
           onChange={(e) =>
-            setUsername(e.target.value)
+            setUsername(
+              e.target.value
+            )
           }
           className="w-full border p-3 rounded mb-4"
         />
@@ -147,7 +160,9 @@ export default function RegisterPage() {
           placeholder="Password"
           value={password}
           onChange={(e) =>
-            setPassword(e.target.value)
+            setPassword(
+              e.target.value
+            )
           }
           className="w-full border p-3 rounded mb-4"
         />
