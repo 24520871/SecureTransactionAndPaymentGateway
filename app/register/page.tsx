@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  registerUser,
+} from "@/lib/auth";
+
 import { useState } from "react";
 
 import {
@@ -59,6 +63,13 @@ export default function RegisterPage() {
         );
         return;
       }
+
+      // Create Firebase account
+      const userCredential =
+      await registerUser(
+        email,
+        password
+      );
 
       // Generate keypair
       const keyPair =
