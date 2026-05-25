@@ -2,12 +2,65 @@
 
 import Link from "next/link";
 
+import {
+  auth
+} from "@/lib/firebase";
+
+import {
+  logoutUser
+} from "@/lib/firebase/auth";
+
+import {
+  useEffect,
+  useState
+} from "react";
+
 export default function Navbar() {
 
-  const isLoggedIn = false;
+  const [isLoggedIn, setIsLoggedIn] =
+    useState(false);
+
+  useEffect(() => {
+
+    const unsubscribe =
+      auth.onAuthStateChanged(
+        (user) => {
+
+          setIsLoggedIn(!!user);
+        }
+      );
+
+    return () => unsubscribe();
+
+  }, []);
+
+  const handleLogout =
+    async () => {
+
+      try {
+
+        await logoutUser();
+
+        alert(
+          "Logout success"
+        );
+
+        window.location.href = "/";
+
+      } catch (error) {
+
+        console.error(error);
+
+        alert(
+          "Logout failed"
+        );
+      }
+    };
 
   return (
+
     <nav className="w-full border-b px-8 py-4 flex justify-between items-center">
+
       <Link
         href="/"
         className="text-2xl font-bold"
@@ -16,6 +69,7 @@ export default function Navbar() {
       </Link>
 
       <div className="flex gap-4 items-center">
+
         <Link href="/">
           Home
         </Link>
@@ -24,18 +78,10 @@ export default function Navbar() {
           Products
         </Link>
 
-        {isLoggedIn ? (
-          <>
-            <Link href="/profile">
-              Profile
-            </Link>
+        {!isLoggedIn ? (
 
-            <button className="bg-red-500 text-white px-4 py-2 rounded">
-              Logout
-            </button>
-          </>
-        ) : (
           <>
+
             <Link href="/login">
               Login
             </Link>
@@ -46,9 +92,22 @@ export default function Navbar() {
             >
               Register
             </Link>
+
           </>
+
+        ) : (
+
+          <button
+            onClick={handleLogout}
+            className="bg-red-500 text-white px-4 py-2 rounded"
+          >
+            Logout
+          </button>
+
         )}
+
       </div>
+
     </nav>
   );
 }
