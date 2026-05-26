@@ -5,7 +5,7 @@ import { loadStripe } from "@stripe/stripe-js";
 
 import CheckoutForm from "@/components/payment/CheckoutForm";
 
-const stripePromise = loadStripe("pk_test_12345");
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 export default function CheckoutPage() {
   return (
