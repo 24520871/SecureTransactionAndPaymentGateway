@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { redis } from "@/lib/redis"; 
 import crypto from "crypto";
 
+import { checkVelocity }
+from "@/lib/fraud-engine/velocity-check";
+
 const TIMESTAMP_WINDOW_SECONDS = 300; 
 
 export async function POST(request: Request) {
@@ -65,6 +68,37 @@ export async function POST(request: Request) {
         { status: 401 }
       );
     }
+
+      //velocity-check
+      const ip =
+      request.headers.get(
+        "x-forwarded-for"
+      ) || "unknown";
+
+      const fraudResult =
+        await checkVelocity(
+          userId,
+          ip
+        );
+
+      if (fraudResult.blocked) {
+
+        return NextResponse.json(
+          {
+            error:
+              "Fraud detection triggered",
+
+            riskScore:
+              fraudResult.riskScore,
+
+            reasons:
+              fraudResult.reasons,
+          },
+          {
+            status: 429,
+          }
+        );
+      }
 
     // 6. Sinh chuỗi Thử thách (Transaction Challenge)
     const transactionChallenge = crypto.randomBytes(32).toString("hex");
