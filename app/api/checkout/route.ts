@@ -112,9 +112,24 @@ export async function POST(request: Request) {
 
     // 6. Sinh chuỗi Thử thách (Transaction Challenge)
     const transactionChallenge = crypto.randomBytes(32).toString("hex");
+
     await redis.set(
       `challenge:${orderId}`,
       transactionChallenge,
+      {
+        ex: 600,
+      }
+    );
+
+    await redis.set(
+      `pending:${orderId}`,
+      JSON.stringify({
+        orderId,
+        amount,
+        paymentToken,
+        userId,
+        timestamp,
+      }),
       {
         ex: 600,
       }

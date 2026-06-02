@@ -143,13 +143,7 @@ export default function CheckoutForm({ productName, amount }: Props) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          email,
-          challenge,
-          signature,
-          token: paymentToken,
-          amount: displayAmount,
-        }),
+        body: JSON.stringify({ orderId, email, challenge, signature, }),
       });
 
       const verifyResult = await verifyResponse.json();

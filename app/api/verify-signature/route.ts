@@ -1,33 +1,59 @@
 import { NextResponse } from "next/server";
-import { signJWS } from "@/lib/crypto/jws";
-import { pool } from "@/lib/storage/postgresqldb";
+
+import { signJWS }
+from "@/lib/crypto/jws";
+
+import { pool }
+from "@/lib/storage/postgresqldb";
+
+import { redis }
+from "@/lib/redis";
 
 // ========================
 // HELPERS (WEBCRYPTO SAFE)
 // ========================
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binary = Buffer.from(base64, "base64");
+function base64ToArrayBuffer(
+  base64: string
+): ArrayBuffer {
+
+  const binary =
+    Buffer.from(
+      base64,
+      "base64"
+    );
 
   return binary.buffer.slice(
     binary.byteOffset,
-    binary.byteOffset + binary.byteLength
+
+    binary.byteOffset +
+      binary.byteLength
   );
 }
 
 // ========================
-// IMPORT PUBLIC KEY (ECDSA P-256)
+// IMPORT PUBLIC KEY
 // ========================
-async function importPublicKey(publicKeyBase64: string) {
-  const keyBuffer = base64ToArrayBuffer(publicKeyBase64);
+async function importPublicKey(
+  publicKeyBase64: string
+) {
+
+  const keyBuffer =
+    base64ToArrayBuffer(
+      publicKeyBase64
+    );
 
   return crypto.subtle.importKey(
     "spki",
+
     keyBuffer,
+
     {
       name: "ECDSA",
       namedCurve: "P-256",
     },
+
     false,
+
     ["verify"]
   );
 }
@@ -35,103 +61,262 @@ async function importPublicKey(publicKeyBase64: string) {
 // ========================
 // MAIN API
 // ========================
-export async function POST(req: Request) {
+export async function POST(
+  req: Request
+) {
+
   try {
-    const body = await req.json();
-    const { email, challenge, signature, token, amount } = body;
+
+    const body =
+      await req.json();
+
+    const {
+      orderId,
+      email,
+      challenge,
+      signature,
+    } = body;
 
     // ========================
     // INPUT VALIDATION
     // ========================
-    if (!email || !challenge || !signature) {
+    if (
+      !orderId ||
+      !email ||
+      !challenge ||
+      !signature
+    ) {
+
       return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
+        {
+          error:
+            "Missing required fields",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
-    console.log("INPUT OK:", {
-      email,
-      challenge,
-      signatureLength: signature.length,
-      token,
-    });
+    console.log(
+      "INPUT OK:",
+      {
+        orderId,
+        email,
+        challenge,
+        signatureLength:
+          signature.length,
+      }
+    );
+
+    // ========================
+    // VERIFY STORED CHALLENGE
+    // ========================
+    const storedChallenge =
+      await redis.get(
+        `challenge:${orderId}`
+      );
+
+    if (!storedChallenge) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Challenge expired",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    if (
+      storedChallenge !==
+      challenge
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Invalid challenge",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    // ========================
+    // LOAD PENDING TRANSACTION
+    // ========================
+    const pendingTransaction =
+      await redis.get(
+        `pending:${orderId}`
+      );
+
+    if (!pendingTransaction) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Pending transaction expired",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const transactionData = typeof pendingTransaction === "string" ? JSON.parse( pendingTransaction ) : pendingTransaction;
+
+    const {
+      amount,
+      paymentToken,
+      userId,
+    } = transactionData;
 
     // ========================
     // GET PUBLIC KEY
     // ========================
-    const userResult = await pool.query(
-      "SELECT public_key FROM users WHERE email = $1",
-      [email]
-    );
+    const userResult =
+      await pool.query(
+        `
+        SELECT public_key
+        FROM users
+        WHERE email = $1
+        `,
+        [email]
+      );
 
-    if (userResult.rows.length === 0) {
+    if (
+      userResult.rows.length === 0
+    ) {
+
       return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
+        {
+          error:
+            "User not found",
+        },
+        {
+          status: 404,
+        }
       );
     }
 
-    const publicKeyBase64 = userResult.rows[0].public_key;
+    const publicKeyBase64 =
+      userResult.rows[0]
+        .public_key;
 
     if (!publicKeyBase64) {
+
       return NextResponse.json(
-        { error: "Public key not found" },
-        { status: 400 }
+        {
+          error:
+            "Public key not found",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
     // ========================
-    // IMPORT KEY
+    // IMPORT PUBLIC KEY
     // ========================
-    let publicKey: CryptoKey;
+    let publicKey:
+      CryptoKey;
 
     try {
-      publicKey = await importPublicKey(publicKeyBase64);
-    } catch (error: unknown) {
-      console.error("PUBLIC KEY ERROR:", error);
+
+      publicKey =
+        await importPublicKey(
+          publicKeyBase64
+        );
+
+    } catch (
+      error: unknown
+    ) {
+
+      console.error(
+        "PUBLIC KEY ERROR:",
+        error
+      );
 
       return NextResponse.json(
-        { error: "Invalid public key format" },
-        { status: 400 }
+        {
+          error:
+            "Invalid public key format",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
     // ========================
-    // VERIFY SIGNATURE (TASK 2)
+    // VERIFY SIGNATURE
     // ========================
-    const encoder = new TextEncoder();
+    const encoder =
+      new TextEncoder();
 
-    const challengeData = encoder.encode(challenge);
-    const signatureData = base64ToArrayBuffer(signature);
+    const challengeData =
+      encoder.encode(
+        challenge
+      );
+
+    const signatureData =
+      base64ToArrayBuffer(
+        signature
+      );
 
     let verified = false;
 
     try {
-      verified = await crypto.subtle.verify(
-        {
-          name: "ECDSA",
-          hash: "SHA-256",
-        },
-        publicKey,
-        signatureData,
-        challengeData
+
+      verified =
+        await crypto.subtle.verify(
+          {
+            name: "ECDSA",
+            hash: "SHA-256",
+          },
+
+          publicKey,
+
+          signatureData,
+
+          challengeData
+        );
+
+    } catch (
+      error: unknown
+    ) {
+
+      console.error(
+        "VERIFY ERROR:",
+        error
       );
-    } catch (error: unknown) {
-      console.error("VERIFY ERROR:", error);
 
       return NextResponse.json(
-        { error: "Signature verification failed" },
-        { status: 400 }
+        {
+          error:
+            "Signature verification failed",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
-    console.log("VERIFIED:", verified);
+    console.log(
+      "VERIFIED:",
+      verified
+    );
 
     // ========================
     // STOP IF FAIL
     // ========================
     if (!verified) {
+
       return NextResponse.json({
         verified: false,
         payment: null,
@@ -139,97 +324,145 @@ export async function POST(req: Request) {
     }
 
     // ========================
-    // TASK 3 - MOCK PSP (NO STRIPE)
+    // MOCK PSP
     // ========================
-    if (!token) {
-      return NextResponse.json(
-        { error: "Missing payment token" },
-        { status: 400 }
-      );
-    }
+    console.log(
+      "▶ PSP processing token:",
+      paymentToken
+    );
 
-    console.log("▶ PSP processing token:", token);
-
-    // 🔥 MOCK PAYMENT ORCHESTRATOR
     const pspResponse = {
       success: true,
-      transactionId: `TXN_${Date.now()}`,
-      token,
+
+      transactionId:
+        `TXN_${Date.now()}`,
+
+      token:
+        paymentToken,
+
       amount,
+
       currency: "usd",
+
       status: "PAID",
     };
 
-    console.log("✔ PSP RESPONSE:", pspResponse);
-
+    console.log(
+      "✔ PSP RESPONSE:",
+      pspResponse
+    );
 
     // ========================
-// TASK 4 - RECEIPT + JWS + DB
-// ========================
+    // RECEIPT + JWS
+    // ========================
+    const transactionId =
+      pspResponse.transactionId;
 
-const transactionId = pspResponse.transactionId;
+    const receiptPayload = {
+      transactionId,
 
-const receiptPayload = {
-  transactionId,
-  email,
-  orderId: `ORD_${Date.now()}`,
-  amount: pspResponse.amount,
-  currency: pspResponse.currency,
-  status: pspResponse.status,
-  createdAt: new Date().toISOString(),
-};
+      email,
 
-// 1. SIGN JWS
-const secret = process.env.JWS_SECRET || "dev_secret";
+      userId,
 
-const receiptJWS = signJWS(receiptPayload, secret);
+      orderId,
 
-// 2. SAVE DB
-await pool.query(
-  `INSERT INTO transactions 
-   (email, order_id, amount, currency, status, transaction_id, receipt_jws)
-   VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-  [
-    email,
-    receiptPayload.orderId,
-    receiptPayload.amount,
-    receiptPayload.currency,
-    receiptPayload.status,
-    transactionId,
-    receiptJWS,
-  ]
-);
+      amount:
+        pspResponse.amount,
 
-// 3. RETURN FINAL RESPONSE
-return NextResponse.json({
-  success: true,
-  verified: true,
+      currency:
+        pspResponse.currency,
 
-  payment: pspResponse,
+      status:
+        pspResponse.status,
 
-  receipt: {
-    transactionId: pspResponse.transactionId,
-    email,
-    orderId: receiptPayload.orderId,
-    amount: pspResponse.amount,
-    currency: pspResponse.currency,
-    status: pspResponse.status,
-    createdAt: receiptPayload.createdAt,
-  },
+      createdAt:
+        new Date()
+          .toISOString(),
+    };
 
-  jws: receiptJWS,
-});
+    // SIGN JWS
+    const secret =
+      process.env
+        .JWS_SECRET ||
+      "dev_secret";
+
+    const receiptJWS =
+      signJWS(
+        receiptPayload,
+        secret
+      );
+
+    // SAVE DB
+    await pool.query(
+      `
+      INSERT INTO transactions
+      (
+        email,
+        order_id,
+        amount,
+        currency,
+        status,
+        transaction_id,
+        receipt_jws
+      )
+      VALUES
+      ($1,$2,$3,$4,$5,$6,$7)
+      `,
+      [
+        email,
+
+        receiptPayload.orderId,
+
+        receiptPayload.amount,
+
+        receiptPayload.currency,
+
+        receiptPayload.status,
+
+        transactionId,
+
+        receiptJWS,
+      ]
+    );
+
+    // ========================
+    // CLEANUP REDIS
+    // ========================
+    await redis.del(
+      `challenge:${orderId}`
+    );
+
+    await redis.del(
+      `pending:${orderId}`
+    );
 
     // ========================
     // FINAL RESPONSE
     // ========================
-    /* return NextResponse.json({
-      verified: true,
-      payment: pspResponse,
-    }); */
+    return NextResponse.json({
+      success: true,
 
-  } catch (error: unknown) {
-    console.error("FATAL ERROR:", error);
+      verified: true,
+
+      payment:
+        pspResponse,
+
+      receipt:
+        receiptPayload,
+
+      jws:
+        receiptJWS,
+    });
+
+  } catch (
+    error: unknown
+  ) {
+
+    console.error(
+      "FATAL ERROR:",
+      error
+    );
 
     return NextResponse.json(
       {
@@ -238,7 +471,9 @@ return NextResponse.json({
             ? error.message
             : "Internal server error",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }
