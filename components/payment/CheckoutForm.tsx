@@ -148,6 +148,7 @@ export default function CheckoutForm({ productName, amount }: Props) {
           challenge,
           signature,
           token: paymentToken,
+          amount: displayAmount,
         }),
       });
 

@@ -38,7 +38,7 @@ async function importPublicKey(publicKeyBase64: string) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { email, challenge, signature, token } = body;
+    const { email, challenge, signature, token, amount } = body;
 
     // ========================
     // INPUT VALIDATION
@@ -155,7 +155,7 @@ export async function POST(req: Request) {
       success: true,
       transactionId: `TXN_${Date.now()}`,
       token,
-      amount: 10000,
+      amount,
       currency: "usd",
       status: "PAID",
     };
