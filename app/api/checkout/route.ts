@@ -32,7 +32,17 @@ export async function POST(request: Request) {
 
     // 3. Kiểm tra Per-transaction Nonce bằng Redis
     const redisKey = `nonce:${nonce}`;
-    const isNewNonce = await redis.set(redisKey, "used", "EX", TIMESTAMP_WINDOW_SECONDS, "NX");
+    const isNewNonce =
+      await redis.set(
+        redisKey,
+        "used",
+        {
+          ex:
+            TIMESTAMP_WINDOW_SECONDS,
+
+          nx: true,
+        }
+      );
     
     if (!isNewNonce) {
       return NextResponse.json(
@@ -102,7 +112,13 @@ export async function POST(request: Request) {
 
     // 6. Sinh chuỗi Thử thách (Transaction Challenge)
     const transactionChallenge = crypto.randomBytes(32).toString("hex");
-    await redis.set(`challenge:${orderId}`, transactionChallenge, "EX", 600);
+    await redis.set(
+      `challenge:${orderId}`,
+      transactionChallenge,
+      {
+        ex: 600,
+      }
+    );
 
     console.log(`[Backend] Xác thực HMAC & Nonce thành công cho Order: ${orderId}. Đã phát sinh Challenge.`);
     return NextResponse.json({ 
